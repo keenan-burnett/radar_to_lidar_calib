@@ -9,11 +9,12 @@ from cv_bridge import CvBridge, CvBridgeError
 index = 0
 
 def callback(lidar_msg, radar_msg):
+    global index
     cloud_points = list(point_cloud2.read_points(lidar_msg, skip_nans=True))
     points = np.array(cloud_points, dtype=np.float32)
-    np.savetxt('{}.txt'.format(index), points, delimiter=',')
+    np.savetxt('lidar/{}.txt'.format(index), points, delimiter=',')
     img = CvBridge().imgmsg_to_cv2(radar_msg, "mono8")
-    cv2.imwrite('{}.png'.format(index), img)
+    cv2.imwrite('radar/{}.png'.format(index), img)
     print(index)
     index += 1
     

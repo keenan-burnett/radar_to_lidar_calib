@@ -45,14 +45,8 @@ def lidar_to_cartesian_image(pc, cart_pixel_width, cart_resolution):
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         datadir = sys.argv[1]
-    files = os.listdir(datadir)
-    lidar_files = []
-    radar_files = []
-    for file in files:
-        if ".txt" in file:
-            lidar_files.append(file)
-        elif ".png" in file:
-            radar_files.append(file)
+    radar_files = os.listdir(datadir + "/radar/")
+    lidar_files = os.listdir(datadir + "/lidar/")
     lidar_files.sort()
     radar_files.sort()
 
@@ -63,7 +57,7 @@ if __name__ == "__main__":
     azimuth_step = np.pi / 200
 
     for i in range(0, len(radar_files)):
-        timestamps, azimuths, valid, fft_data, radar_resolution = load_radar(os.path.join(datadir, radar_files[i]))
+        timestamps, azimuths, valid, fft_data, radar_resolution = load_radar(datadir + "/radar/" + radar_files[i])
         targets = cen2018features(fft_data)
         polar = targets_to_polar_image(targets, fft_data.shape)
         cart = radar_polar_to_cartesian(azimuths, polar, radar_resolution, cart_resolution, cart_pixel_width)
@@ -89,7 +83,7 @@ if __name__ == "__main__":
         # xbar = np.matmul(R, xbar)
         # print('delta_x: {} delta_y: {}'.format(xbar[0], xbar[1]))
 
-        x = load_lidar(lidar_files[i])
+        x = load_lidar(datadir + "/lidar/" + lidar_files[i])
         cart_lidar = lidar_to_cartesian_image(x, cart_pixel_width, cart_resolution)
         polar_lidar = cartesian_to_polar(cart_lidar, radar_resolution, azimuth_step, 3360, 400, cart_pixel_width, cart_resolution)
 
@@ -105,7 +99,6 @@ if __name__ == "__main__":
         if rotation > np.pi:
             rotation = 2 * np.pi - rotation
         R = get_rotation(rotation)
-        # R = np.zeros((3,3))
         xprime = x
         for j in range(0, x.shape[1]):
             xprime[:,j] = np.squeeze(np.matmul(R, x[:,j].reshape(3,1)))
@@ -114,10 +107,9 @@ if __name__ == "__main__":
         rgb = np.zeros((cart_pixel_width, cart_pixel_width, 3), np.uint8)
         rgb[..., 0] = cart_lidar2
         rgb[..., 1] = cart
-        # cv2.imshow('radar', cart)
-        # cv2.imshow('lidar', cart_lidar)
-        # cv2.imshow('combined', rgb)
-        # cv2.waitKey(0)
+        cv2.imwrite("radar.png", cart)
+        cv2.imwrite("lidar.png", cart_lidar)
+        cv2.imwrite("combined.png", np.flip(rgb, axis=2))
         fig, axs = plt.subplots(1, 3, tight_layout=True)
         axs[0].imshow(cart, cmap=cm.gray)
         axs[1].imshow(cart_lidar, cmap=cm.gray)
