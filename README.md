@@ -17,3 +17,14 @@ Note: this calibration is mostly useful for estimating rotation. I've verified t
 
 # Example Data
 Sample data for this repository can be downloaded using the provided script: download_data.sh. The example data includes radar data from a Navtech CIR204-H and lidar data from a Velodyne Alpha-Prime (128 beam).
+
+# References
+Using the Fourier Mellin transform with radar data was previously shown in these works:
+
+[Checchin, Paul, et al. "Radar scan matching slam using the fourier-mellin transform." Field and Service Robotics. Springer, Berlin, Heidelberg, 2010.](https://link.springer.com/chapter/10.1007/978-3-642-13408-1_14)
+
+[Park, Yeong Sang, Young-Sik Shin, and Ayoung Kim. "PhaRaO: Direct Radar Odometry using Phase Correlation." Proceedings of the IEEE International Conference on Robotics and Automation (ICRA). IEEE. 2020.](https://irap.kaist.ac.kr/publications/yspark-2020-icra.pdf)
+
+The Fourier Mellin transform for image registration is described in detail here:
+
+[Reddy, B. Srinivasa, and Biswanath N. Chatterji. "An FFT-based technique for translation, rotation, and scale-invariant image registration." IEEE transactions on image processing 5.8 (1996): 1266-1271.](https://ieeexplore.ieee.org/abstract/document/506761?casa_token=WrYrcyq6NloAAAAA:T43aa6Mluef9jc69kNuK-q713zy12-pQzrf9YwQwji2B5byd06dLjTVhUaXyBuSKbnNe5vCm2ys)
