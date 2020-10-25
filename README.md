@@ -15,6 +15,8 @@ Collecting more pairs of data in different locations will lead to a more accurat
 
 Note: this calibration is mostly useful for estimating rotation. I've verified that with 10 radar-lidar pairs, I was able to get a rotation accuracy of < 0.1 degrees. The translation estimation isn't as good, and probably isn't usable. It might be possible to upsample the cartesian image on a cropped region to get a better translation estimate, but it would be tough to beat hand measurements or a CAD model (1 cm error).
 
+Note 2: the extract.py script uses rospy and Python 2. The calibrate.py script uses Python 3.
+
 # Example Data
 Sample data for this repository can be downloaded using the provided script: download_data.sh. The example data includes radar data from a Navtech CIR204-H and lidar data from a Velodyne Alpha-Prime (128 beam).
 
