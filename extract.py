@@ -1,3 +1,4 @@
+import os
 import rospy
 import numpy as np
 import message_filters
@@ -24,4 +25,8 @@ if __name__ == "__main__":
     radar_sub = message_filters.Subscriber('/talker1/Navtech/Polar', Image)
     ts = message_filters.ApproximateTimeSynchronizer([lidar_sub, radar_sub], 100, 0.1)
     ts.registerCallback(callback)
+    if not os.path.exists("lidar"):
+        os.makedirs("lidar")
+    if not os.path.exists("radar"):
+        os.makedirs("radar")
     rospy.spin()

@@ -137,8 +137,6 @@ def radar_polar_to_cartesian(azimuths: np.ndarray, fft_data: np.ndarray, radar_r
 
     # Interpolate Radar Data Coordinates
     azimuth_step = azimuths[1] - azimuths[0]
-    azimuth_step = np.pi / 200
-    azimuths[0] = 0
     sample_u = (sample_range - radar_resolution / 2) / radar_resolution
     sample_v = (sample_angle - azimuths[0]) / azimuth_step
 
