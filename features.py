@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import ndimage
 
-def cen2018features(fft_data: np.ndarray, min_range=58, zq=4.0, sigma_gauss=17) -> np.ndarray:
+def cen2018features(fft_data: np.ndarray, min_range=58, zq=3.0, sigma_gauss=17) -> np.ndarray:
     """Extract features from polar radar data using the method described in cen_icra18
     Args:
         fft_data (np.ndarray): Polar radar power readings
