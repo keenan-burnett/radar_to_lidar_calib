@@ -30,3 +30,6 @@ Using the Fourier Mellin transform with radar data was previously shown in these
 The Fourier Mellin transform for image registration is described in detail here:
 
 [Reddy, B. Srinivasa, and Biswanath N. Chatterji. "An FFT-based technique for translation, rotation, and scale-invariant image registration." IEEE transactions on image processing 5.8 (1996): 1266-1271.](https://ieeexplore.ieee.org/abstract/document/506761?casa_token=WrYrcyq6NloAAAAA:T43aa6Mluef9jc69kNuK-q713zy12-pQzrf9YwQwji2B5byd06dLjTVhUaXyBuSKbnNe5vCm2ys)
+
+## TODO:
+- [ ] Remove outliers from the registration process to improve the final rotation estimate

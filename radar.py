@@ -100,8 +100,6 @@ def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resoluti
         sample_v = sample_v + 1
 
     polar_to_cart_warp = np.stack((sample_u.astype(np.float32), sample_v.astype(np.float32)), -1)
-    print(polar_to_cart_warp.dtype)
-    print(fft_data.dtype)
     return cv2.remap(fft_data, polar_to_cart_warp, None, cv2.INTER_LINEAR)
 
 def cartesian_to_polar(cart: np.ndarray, radial_step: float, azimuth_step : float, radial_bins: int,
