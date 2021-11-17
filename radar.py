@@ -19,34 +19,7 @@ import cv2
 CTS350 = 0
 CIR204 = 1
 
-def get_azimuth_index(azms, aquery):
-    closest = np.argmin(np.abs(azms - aquery))
-    if azms[closest] < aquery:
-        if closest < azms.shape[0] - 1:
-            if azms[closest + 1] == azms[closest]:
-                closest += 0.5
-            elif azms[closest + 1] > azms[closest]:
-                closest += (aquery - azms[closest]) / (azms[closest + 1] - azms[closest])
-    elif azms[closest] > aquery:
-        if closest > 0:
-            if azms[closest - 1] == azms[closest]:
-                closest -= 0.5
-            elif azms[closest - 1] < azms[closest]:
-                closest -= (azms[closest] - aquery) / (azms[closest] - azms[closest - 1])
-    return closest
-
-def fix_wobble(raw_data):
-    encoder_size = 5600
-    azms = (raw_data[:, 8:10].copy().view(np.uint16) / float(encoder_size) * 2 * np.pi).astype(np.float32)
-    fft_data = raw_data[:, 11:].copy().astype(np.float32)
-    a_step = (azms[-1] - azms[0]) / (azms.shape[0] - 1)
-    for i in range(1, azms.shape[0] - 1):
-        aquery = azms[0] + a_step * i
-        aindex = get_azimuth_index(azms, aquery)
-        raw_data[i, 11:] = bilinear_intep(fft_data, aindex).astype(np.uint8)
-        raw_data[i, 8:10] = convert_to_byte_array(np.uint16(encoder_size * aquery / (2 * np.pi)), d=16)
-
-def load_radar(example_path, fix_wob=False):
+def load_radar(example_path, fix_azimuths=False):
     """Decode a single Oxford Radar RobotCar Dataset radar example
     Args:
         example_path (AnyStr): Oxford Radar RobotCar Dataset Example png
@@ -59,16 +32,19 @@ def load_radar(example_path, fix_wob=False):
     """
     # Hard coded configuration to simplify parsing code
     encoder_size = 5600
+    #t = float(example_path.split('.')[0]) * 1.0e-6
     raw_example_data = cv2.imread(example_path, cv2.IMREAD_GRAYSCALE)
-    if fix_wob:
-        fix_wobble(raw_example_data)
     timestamps = raw_example_data[:, :8].copy().view(np.int64)
     azimuths = (raw_example_data[:, 8:10].copy().view(np.uint16) / float(encoder_size) * 2 * np.pi).astype(np.float32)
+    N = raw_example_data.shape[0]
+    azimuth_step = 2 * np.pi / N
+    if fix_azimuths:
+    	azimuths = np.zeros((N, 1), dtype=np.float32)
+    	for i in range(N):
+            azimuths[i, 0] = i * azimuth_step
     valid = raw_example_data[:, 10:11] == 255
-    fft_data = raw_example_data[:, 11:].astype(np.float32)[:, :, np.newaxis] / 255.
-    fft_data = np.squeeze(fft_data)
+    fft_data = raw_example_data[:, 11:].astype(np.float32) / 255.
     return timestamps, azimuths, valid, fft_data
-
 
 def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resolution, cart_pixel_width,
                              interpolate_crossover=True, fix_wobble=True):
@@ -100,28 +76,19 @@ def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resoluti
     azimuth_step = (azimuths[-1] - azimuths[0]) / (azimuths.shape[0] - 1)
     sample_u = (sample_range - radar_resolution / 2) / radar_resolution
     sample_v = (sample_angle - azimuths[0]) / azimuth_step
-    # This fixes the wobble in the old CIR204 data from Boreas (keenan)
-    if fix_wobble and radar_resolution == 0.0596:
-        azimuths = azimuths.reshape((1, 1, 400))  # 1 x 1 x 400
-        sample_angle = np.expand_dims(sample_angle, axis=-1)  # H x W x 1
-        diff = np.abs(azimuths - sample_angle)
-        c3 = np.argmin(diff, axis=2)
-        azimuths = azimuths.squeeze()
-        c3 = c3.reshape(cart_pixel_width, cart_pixel_width)  # azimuth indices (closest)
-        mindiff = sample_angle.squeeze() - azimuths[c3]
-        sample_angle = sample_angle.squeeze()
-        mindiff = mindiff.squeeze()
-
-        subc3 = c3 * (c3 < 399)
-        aplus = azimuths[subc3 + 1]
-        a1 = azimuths[subc3]
-        delta1 = mindiff * (mindiff > 0) * (c3 < 399) / (aplus - a1)
-        subc3 = c3 * (c3 > 0)
-        a2 = azimuths[subc3]
-        aminus = azimuths[1 + (c3 > 0) * (subc3 - 2)]
-        delta2 = mindiff * (mindiff < 0) * (c3 > 0) / (a2 - aminus)
-        sample_v = c3 + delta1 + delta2
-        sample_v = sample_v.astype(np.float32)
+    # This fixes the wobble in the old CIR204 data from Boreas
+    M = azimuths.shape[0]
+    azms = azimuths.squeeze()
+    if fix_wobble:
+        c3 = np.searchsorted(azms, sample_angle.squeeze())
+        c3[c3 == M] -= 1
+        c2 = c3 - 1
+        c2[c2 < 0] += 1
+        a3 = azms[c3]
+        diff = sample_angle.squeeze() - a3
+        a2 = azms[c2]
+        delta = diff * (diff < 0) * (c3 > 0) / (a3 - a2 + 1e-14)
+        sample_v = (c3 + delta).astype(np.float32)
 
     # We clip the sample points to the minimum sensor reading range so that we
     # do not have undefined results in the centre of the image. In practice
@@ -132,7 +99,9 @@ def radar_polar_to_cartesian(azimuths, fft_data, radar_resolution, cart_resoluti
         fft_data = np.concatenate((fft_data[-1:], fft_data, fft_data[:1]), 0)
         sample_v = sample_v + 1
 
-    polar_to_cart_warp = np.stack((sample_u, sample_v), -1)
+    polar_to_cart_warp = np.stack((sample_u.astype(np.float32), sample_v.astype(np.float32)), -1)
+    print(polar_to_cart_warp.dtype)
+    print(fft_data.dtype)
     return cv2.remap(fft_data, polar_to_cart_warp, None, cv2.INTER_LINEAR)
 
 def cartesian_to_polar(cart: np.ndarray, radial_step: float, azimuth_step : float, radial_bins: int,

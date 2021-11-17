@@ -42,10 +42,10 @@ def lidar_to_cartesian_image(pc, cart_pixel_width, cart_resolution):
         cart_min_range = cart_pixel_width // 2 * cart_resolution
     cart_img = np.zeros((cart_pixel_width, cart_pixel_width))
     for i in range(0, pc.shape[1]):
-        if x[2, i] < -1.5 or x[2, i] > 1.5:
+        if pc[2, i] < -1.5 or pc[2, i] > 1.5:
             continue
-        u = int((cart_min_range - x[1, i]) / cart_resolution)
-        v = int((cart_min_range - x[0, i]) / cart_resolution)
+        u = int((cart_min_range - pc[1, i]) / cart_resolution)
+        v = int((cart_min_range - pc[0, i]) / cart_resolution)
         if 0 < u and u < cart_pixel_width and 0 < v and v < cart_pixel_width:
             cart_img[v, u] = 255
     return cart_img
@@ -75,9 +75,11 @@ def get_closest_frame(query_time, target_times, targets):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--root')
+    parser.add_argument('--root', type=str, help='path to /lidar and /radar')
+    parser.add_argument('--lightmode', action='store_true', help='use lightmode when making radar-to-lidar plots')
     args = parser.parse_args()
     root = args.root
+    lightmode = args.lightmode
     radar_root = osp.join(root, 'radar')
     lidar_root = osp.join(root, 'lidar')
     radar_files = sorted([f for f in os.listdir(radar_root) if 'png' in f])
@@ -102,7 +104,7 @@ if __name__ == "__main__":
     if not osp.exists("figs"):
         os.makedirs("figs")
     min_range = 42                  # We ignore radar bins [0, min_range)
-    radar_resolution = 0.04381       # Each range bin in the radar data corresponds to this many meters.
+    radar_resolution = 0.0596       # Each range bin in the radar data corresponds to this many meters.
     azimuth_bins = 400
     cart_resolution = radar_resolution        # Meters per pixel in the cartesian image (set to a multiple of radar_resolution)
     max_range = 100
@@ -120,9 +122,12 @@ if __name__ == "__main__":
     rotations = []
     translations = []
 
-    for i in range(0, len(radar_files)):
+    for i in range(0, 1):
         # Load radar data and upsample along azimuth axis
-        times, azimuths, _, fft_data = load_radar(osp.join(radar_root, radar_files[i]))
+        times, azimuths, _, fft_data = load_radar(osp.join(radar_root, radar_files[i]), fix_azimuths=True)
+        print(azimuths.shape, azimuths.dtype)
+        plt.scatter(list(range(400)), azimuths)
+        plt.show()
         fft_data = fft_data[:, :max_bins]
         azimuth_bins = fft_data.shape[0]
         range_bins = fft_data.shape[1]
@@ -133,7 +138,7 @@ if __name__ == "__main__":
         # Extract radar target locations and convert these into polar and cartesian images
         targets = cen2018features(fft_data)
         polar = targets_to_polar_image(targets, fft_data.shape)
-        cart = radar_polar_to_cartesian(azimuths, polar, radar_resolution, cart_resolution, cart_pixel_width)
+        cart = radar_polar_to_cartesian(azimuths, polar, radar_resolution, cart_resolution, cart_pixel_width, fix_wobble=False)
         cart = np.where(cart > 0, 255, 0)
 
         # Load lidar data and convert it into polar and cartesian images
@@ -211,9 +216,21 @@ if __name__ == "__main__":
             for j in range(0, x.shape[1]):
                 x[:,j] = np.squeeze(np.matmul(R, x[:,j].reshape(3,1)))
             cart_lidar2 = lidar_to_cartesian_image(x, cart_pixel_width, cart_resolution)
-            rgb = np.zeros((cart_pixel_width, cart_pixel_width, 3), np.uint8)
-            rgb[..., 0] = cart_lidar2
-            rgb[..., 1] = cart
+            if lightmode:
+                rgb = np.ones((cart_pixel_width, cart_pixel_width, 3), np.uint8) * 255
+                mask = np.logical_not(cart_lidar2 == 255) * 255
+                rgb[..., 1] = mask
+                rgb[..., 2] = mask
+                mask2 = np.logical_not(cart == 255) * 255
+                rgb[..., 0] = np.logical_or(cart_lidar2, mask2) * 255
+                rgb[..., 1] = np.logical_and(rgb[..., 1], mask2) * 255
+                rgb[..., 2] = np.logical_or(rgb[..., 2], cart) * 255
+                rgb[..., 0] *= np.logical_not(np.logical_and(cart_lidar2, cart))
+            else:
+                rgb = np.zeros((cart_pixel_width, cart_pixel_width, 3), np.uint8)
+                rgb[..., 0] = cart_lidar2
+                rgb[..., 1] = cart
+
             cv2.imwrite(osp.join("figs", "combined" + str(i) + ".png"), np.flip(rgb, axis=2))
             cv2.imwrite(osp.join("figs", "combined" + str(i) + ".png"), np.flip(rgb, axis=2))
             fig, axs = plt.subplots(1, 3, tight_layout=True)
